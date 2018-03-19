@@ -163,16 +163,16 @@ public class TrainerActivity extends FragmentActivity {
         ssm = new SessionStorageManager(db);
         Intent intent = getIntent();
         boolean resume = intent.getBooleanExtra(PARAM_RESUME_SESSION_FLAG, false);
-        ArrayList<VList> lists;
+        ArrayList<VList> list;
         if (resume) {
             Log.d(TAG, "resuming");
             settings = ssm.loadSession();
-            lists = ssm.loadSessionTbls();
+            list = ssm.loadSessionTbls();
         } else {
             Log.d(TAG, "not resuming");
-            lists = (ArrayList<VList>) intent.getSerializableExtra(PARAM_TABLES);
-            if (lists == null) {
-                Log.wtf(TAG, "Flag for lists passed but no lists received!");
+            list = (ArrayList<VList>) intent.getSerializableExtra(PARAM_TABLES);
+            if (list == null) {
+                Log.wtf(TAG, "Flag for list passed but no list received!");
             } else {
                 settings = (TrainerSettings) intent.getSerializableExtra(PARAM_TRAINER_SETTINGS);
                 if (settings == null) {
@@ -183,7 +183,7 @@ public class TrainerActivity extends FragmentActivity {
                         Log.wtf(TAG, "unable to delete past session");
                     } else if (!ssm.saveSession(settings)) {
                         Log.wtf(TAG, "unable to save session meta");
-                    } else if (!ssm.saveSessionTbls(lists)) {
+                    } else if (!ssm.saveSessionTbls(list)) {
                         Log.wtf(TAG, "unable to save session lists");
                     } else {
                         Log.d(TAG, "saved session");
@@ -192,7 +192,7 @@ public class TrainerActivity extends FragmentActivity {
 
             }
         }
-        trainer = new Trainer(lists, settings, getBaseContext(), !resume,ssm);
+        trainer = new Trainer(list, settings, getBaseContext(), !resume,ssm);
     }
 
     @Override

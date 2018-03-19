@@ -2,9 +2,9 @@ package vocabletrainer.heinecke.aron.vocabletrainer.dialog;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.app.DialogFragment;
 import android.content.DialogInterface;
 import android.os.Bundle;
+import android.support.v4.app.DialogFragment;
 import android.util.Log;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -80,9 +80,9 @@ public class VListEditorDialog extends DialogFragment {
         final EditText iColB = new EditText(getActivity());
         iName.setText(list.getName());
         iName.setSingleLine();
-        iName.setHint(R.string.Editor_Default_List_Name);
-        iColA.setHint(R.string.Editor_Default_Column_A);
-        iColB.setHint(R.string.Editor_Default_Column_B);
+        iName.setHint(R.string.Editor_Hint_List_Name);
+        iColA.setHint(R.string.Editor_Hint_Column_A);
+        iColB.setHint(R.string.Editor_Hint_Column_B);
         iColA.setText(list.getNameA());
         iColA.setSingleLine();
         iColB.setSingleLine();

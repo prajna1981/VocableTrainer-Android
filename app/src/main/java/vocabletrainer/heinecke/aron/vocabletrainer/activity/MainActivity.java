@@ -111,12 +111,6 @@ public class MainActivity extends AppCompatActivity {
                     this.startActivity(myIntent);
                 }
                 break;
-                case REQUEST_TRAINER_LIST: {
-                    Intent myIntent = new Intent(this, TrainerSettingsActivity.class);
-                    myIntent.putExtra(ListActivity.RETURN_LISTS, data.getSerializableExtra(ListActivity.RETURN_LISTS));
-                    this.startActivity(myIntent);
-                }
-                break;
                 case REQUEST_PERM_EXPORT: {
                     startExportActivityUnchecked();
                 }
@@ -184,9 +178,8 @@ public class MainActivity extends AppCompatActivity {
      * @param view
      */
     public void showTrainer(View view) {
-        Intent myIntent = new Intent(this, ListActivity.class);
-        myIntent.putExtra(ListActivity.PARAM_MULTI_SELECT, true);
-        this.startActivityForResult(myIntent, REQUEST_TRAINER_LIST);
+        Intent myIntent = new Intent(this, TrainerSettingsActivity.class);
+        this.startActivity(myIntent);
     }
 
     /**

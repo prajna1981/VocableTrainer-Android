@@ -18,11 +18,13 @@ import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ListView;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 import vocabletrainer.heinecke.aron.vocabletrainer.R;
 import vocabletrainer.heinecke.aron.vocabletrainer.activity.lib.TableListAdapter;
+import vocabletrainer.heinecke.aron.vocabletrainer.fragment.ListPickerFragment;
 import vocabletrainer.heinecke.aron.vocabletrainer.lib.Comparator.GenTableComparator;
 import vocabletrainer.heinecke.aron.vocabletrainer.lib.Comparator.GenericComparator;
 import vocabletrainer.heinecke.aron.vocabletrainer.lib.Database;
@@ -34,7 +36,7 @@ import static vocabletrainer.heinecke.aron.vocabletrainer.lib.Database.ID_RESERV
 /**
  * List selector activity
  */
-public class ListActivity extends AppCompatActivity {
+public class ListActivity extends FragmentActivity implements ListPickerFragment.FinishListener {
 
     /**
      * Set whether multi-select is enabled or not<br>
@@ -74,8 +76,7 @@ public class ListActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        db = new Database(this.getBaseContext());
-        setContentView(R.layout.activity_list_selector);
+        setContentView(R.layout.fragment_activity);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -84,77 +85,23 @@ public class ListActivity extends AppCompatActivity {
             ab.setDisplayHomeAsUpEnabled(true);
         }
 
-        // lambdas without lambdas
-        compName = new GenTableComparator(
-                new GenericComparator.ValueRetriever[]{GenTableComparator.retName,
-                        GenTableComparator.retA, GenTableComparator.retB}
-        ,ID_RESERVED_SKIP);
-        compA = new GenTableComparator(
-                new GenericComparator.ValueRetriever[]{GenTableComparator.retA,
-                        GenTableComparator.retB, GenTableComparator.retName}
-        ,ID_RESERVED_SKIP);
-        compB = new GenTableComparator(
-                new GenericComparator.ValueRetriever[]{GenTableComparator.retB,
-                        GenTableComparator.retA, GenTableComparator.retName}
-        ,ID_RESERVED_SKIP);
-
         Intent intent = getIntent();
         // handle passed params
         multiselect = intent.getBooleanExtra(PARAM_MULTI_SELECT, false);
         delete = intent.getBooleanExtra(PARAM_DELETE_FLAG, false);
         bOk = (Button) findViewById(R.id.btnOkSelect);
 
-        SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
-        sort_type = settings.getInt(P_KEY_LA_SORT, R.id.lMenu_sort_Name);
-        updateComp();
-
-        // setup listview
-        initListView();
-        loadTables((ArrayList<VList>) intent.getSerializableExtra(PARAM_SELECTED));
-        updateOkButton();
-    }
-
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.list, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.lMenu_sort_Name:
-            case R.id.lMenu_sort_A:
-            case R.id.lMenu_sort_B:
-                sort_type = item.getItemId();
-                updateComp();
-                adapter.updateSorting(cComp);
-                return true;
+        Serializable val = intent.getSerializableExtra(PARAM_SELECTED);
+        ArrayList<VList> preselected = new ArrayList<>();
+        if(val instanceof ArrayList){
+            preselected = (ArrayList<VList>) intent.getSerializableExtra(PARAM_SELECTED);
+        } else if(val != null){
+            Log.wtf(TAG,"Pre-selection from illegal type!");
         }
 
-        return super.onOptionsItemSelected(item);
-    }
+        ListPickerFragment listPickerFragment = ListPickerFragment.newInstance(multiselect,delete,preselected,this,true);
 
-    /**
-     * Update sorting type
-     */
-    private void updateComp() {
-        switch (sort_type) {
-            case R.id.lMenu_sort_A:
-                cComp = compA;
-                break;
-            case R.id.lMenu_sort_B:
-                cComp = compB;
-                break;
-            case R.id.lMenu_sort_Name:
-                cComp = compName;
-                break;
-            default:
-                cComp = compName;
-                sort_type = R.id.lMenu_sort_Name;
-                break;
-        }
+        setFragment(listPickerFragment);
     }
 
     @Override
@@ -164,154 +111,25 @@ public class ListActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-        loadTables(null);
-    }
-
-    @Override
     public void onBackPressed() {
         Intent returnIntent = new Intent();
         setResult(Activity.RESULT_CANCELED, returnIntent);
         finish();
     }
 
-
-    /**
-     * Load lists from db
-     *
-     * @param tickedLists already selected lists, can be null
-     */
-    private void loadTables(List<VList> tickedLists) {
-        lists = db.getTables();
-        adapter.setAllUpdated(lists, cComp);
-        if (tickedLists != null) {
-            for (int i = 0; i < adapter.getCount(); i++) {
-                VList tbl = adapter.getItem(i);
-                if (tbl.isExisting() && tickedLists.contains(tbl)) {
-                    listView.setItemChecked(i, true);
-                }
-            }
-        }
-    }
-
-    /**
-     * Setup list view
-     */
-    private void initListView() {
-        listView = (ListView) findViewById(R.id.listVIewLstSel);
-
-        ArrayList<VList> lists = new ArrayList<>();
-        adapter = new TableListAdapter(this, R.layout.table_list_view, lists, multiselect);
-
-        listView.setAdapter(adapter);
-
-        if (multiselect) {
-            // TODO: title; setTitle(R.string.ListSelector_Title_Training);
-            listView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
-            listView.setItemsCanFocus(false);
-            listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                @Override
-                public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                    updateOkButton();
-                }
-            });
-            bOk.setVisibility(View.VISIBLE);
-            bOk.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ArrayList<VList> selectedLists = new ArrayList<VList>(10);
-                    final SparseBooleanArray checkedItems = listView.getCheckedItemPositions();
-                    int chkItemsCount = checkedItems.size();
-
-                    for (int i = 0; i < chkItemsCount; ++i) {
-                        if (checkedItems.valueAt(i)) {
-                            selectedLists.add(adapter.getItem(checkedItems.keyAt(i)));
-                        }
-                    }
-
-                    Log.d(TAG, "returning with " + selectedLists.size() + " selected items");
-
-                    Intent returnIntent = new Intent();
-                    returnIntent.putExtra(RETURN_LISTS, selectedLists);
-                    setResult(Activity.RESULT_OK, returnIntent);
-                    finish();
-                }
-            });
-        } else {
-            if (delete) {
-                setTitle(R.string.ListSelector_Title_Delete);
-                listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                    @Override
-                    public void onItemClick(AdapterView<?> parent, final View view, int position, long id) {
-                        VList list = adapter.getItem(position);
-                        if (list.getId() != ID_RESERVED_SKIP) {
-                            showDeleteDialog(list);
-                        }
-                    }
-
-                });
-            } else {
-                setTitle(R.string.ListSelector_Title_Edit);
-                listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                    @Override
-                    public void onItemClick(AdapterView<?> parent, final View view, int position, long id) {
-                        VList list = adapter.getItem(position);
-                        if (list.getId() != ID_RESERVED_SKIP) {
-                            Intent returnIntent = new Intent();
-                            returnIntent.putExtra(RETURN_LISTS, list);
-                            setResult(Activity.RESULT_OK, returnIntent);
-                            finish();
-                        }
-                    }
-
-                });
-            }
-        }
-    }
-
-    /**
-     * Update enabled state of OK button
-     */
-    private void updateOkButton() {
-        bOk.setEnabled(listView.getCheckedItemCount() > 0);
-    }
-
-    /**
-     * Show delete dialog for table
-     *
-     * @param listToDelete
-     */
-    private void showDeleteDialog(final VList listToDelete) {
-        final AlertDialog.Builder finishedDiag = new AlertDialog.Builder(this);
-
-        finishedDiag.setTitle(R.string.ListSelector_Diag_delete_Title);
-        finishedDiag.setMessage(String.format(getText(R.string.ListSelector_Diag_delete_Msg).toString(),
-                listToDelete.getName(), listToDelete.getNameA(), listToDelete.getNameB()));
-
-        finishedDiag.setPositiveButton(R.string.ListSelector_Diag_delete_btn_Delete, new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int whichButton) {
-                db.deleteTable(listToDelete);
-                adapter.removeEntryUpdated(listToDelete);
-            }
-        });
-
-        finishedDiag.setNegativeButton(R.string.ListSelector_Diag_delete_btn_Cancel, new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int whichButton) {
-                // do nothing
-            }
-        });
-
-        finishedDiag.show();
+    @Override
+    public void selectionFinished(ArrayList<VList> selected) {
+        Intent returnIntent = new Intent();
+        if(multiselect)
+            returnIntent.putExtra(RETURN_LISTS, selected);
+        else
+            returnIntent.putExtra(RETURN_LISTS, selected.get(0));
+        setResult(Activity.RESULT_OK, returnIntent);
+        finish();
     }
 
     @Override
-    protected void onStop() {
-        super.onStop();
-        // Save values
-        SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
-        SharedPreferences.Editor editor = settings.edit();
-        editor.putInt(P_KEY_LA_SORT, sort_type);
-        editor.apply();
+    public void cancel() {
+        onBackPressed();
     }
 }

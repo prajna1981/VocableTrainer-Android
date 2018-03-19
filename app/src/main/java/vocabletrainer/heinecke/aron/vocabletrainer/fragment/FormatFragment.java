@@ -3,17 +3,20 @@ package vocabletrainer.heinecke.aron.vocabletrainer.fragment;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.preference.EditTextPreference;
-import android.preference.PreferenceFragment;
-import android.preference.SwitchPreference;
-import android.support.annotation.Nullable;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v4.app.DialogFragment;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AlertDialog;
+import android.support.v7.preference.EditTextPreference;
+import android.support.v7.preference.EditTextPreferenceDialogFragmentCompat;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceFragmentCompat;
 import android.text.InputFilter;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.EditText;
 
 import org.apache.commons.csv.CSVFormat;
@@ -21,14 +24,16 @@ import org.apache.commons.csv.CSVFormat;
 import vocabletrainer.heinecke.aron.vocabletrainer.R;
 import vocabletrainer.heinecke.aron.vocabletrainer.activity.ExImportActivity;
 import vocabletrainer.heinecke.aron.vocabletrainer.activity.FragmentActivity;
+import vocabletrainer.heinecke.aron.vocabletrainer.lib.CustomEditTextPreference;
 
 import static vocabletrainer.heinecke.aron.vocabletrainer.activity.MainActivity.PREFS_NAME;
 
 /**
  * Fragment for custom format preferences
  */
-public class FormatFragment extends PreferenceFragment implements FragmentActivity.BackButtonListner{
+public class FormatFragment extends PreferenceFragmentCompat implements FragmentActivity.BackButtonListener {
     private static final String TAG = "FormatFragment";
+    private static final String C_DIALOG_TAG = "android.support.v7.preference.PreferenceFragment.DIALOG";
     private static final int CHAR_POS = 0;
     SwitchPreference swEscaping;
     SwitchPreference swComment;
@@ -40,10 +45,12 @@ public class FormatFragment extends PreferenceFragment implements FragmentActivi
     EditTextPreference tComment;
     EditTextPreference tQuote;
     EditTextPreference tDelimtier;
+    private InputFilter[] lengthFilter = new InputFilter[] {new InputFilter.LengthFilter(1)};
+
 
     @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
+        addPreferencesFromResource(R.xml.pref_format);
 
         ActionBar ab = ((FragmentActivity) getActivity()).getSupportActionBar();
 
@@ -53,15 +60,6 @@ public class FormatFragment extends PreferenceFragment implements FragmentActivi
         }
 
         setHasOptionsMenu(true);
-
-        addPreferencesFromResource(R.xml.pref_format);
-
-        InputFilter[] filters = new InputFilter[]{new InputFilter.LengthFilter(1)};
-
-        addTextFilter(R.string.k_pref_comment_char, filters);
-        addTextFilter(R.string.k_pref_escape_char, filters);
-        addTextFilter(R.string.k_pref_quote_char, filters);
-        addTextFilter(R.string.k_pref_delimiter, filters);
 
         swEscaping = (SwitchPreference) findPreference(getString(R.string.k_pref_escape));
         swComment = (SwitchPreference) findPreference(getString(R.string.k_pref_comment));
@@ -74,6 +72,7 @@ public class FormatFragment extends PreferenceFragment implements FragmentActivi
         tQuote = (EditTextPreference) findPreference(getString(R.string.k_pref_quote_char));
         tDelimtier = (EditTextPreference) findPreference(getString(R.string.k_pref_delimiter));
         tComment = (EditTextPreference) findPreference(getString(R.string.k_pref_comment_char));
+
     }
 
     @Override
@@ -81,8 +80,6 @@ public class FormatFragment extends PreferenceFragment implements FragmentActivi
         super.onStart();
         loadPrefs();
     }
-
-
 
     @Override
     public void onStop() {
@@ -230,20 +227,53 @@ public class FormatFragment extends PreferenceFragment implements FragmentActivi
         return super.onOptionsItemSelected(item);
     }
 
-    /**
-     * Adds text filters to specified settings
-     *
-     * @param key     resource key by which to get the setting
-     * @param filters Filters to apply
-     */
-    private void addTextFilter(final int key, InputFilter[] filters) {
-        EditText editText1 = ((EditTextPreference) findPreference(getString(key)))
-                .getEditText();
-        editText1.setFilters(filters);
-    }
-
     @Override
     public boolean onBackPressed() {
         return verifyFormat();
+    }
+
+    @Override
+    public void onDisplayPreferenceDialog(Preference preference) {
+        // hack for custom dialog to allow for edittext filters
+
+        // dialog shown
+        if (getFragmentManager().findFragmentByTag(C_DIALOG_TAG) != null) {
+            return;
+        }
+
+        DialogFragment f = null;
+        if (preference instanceof CustomEditTextPreference) {
+            f = EditTextPreferenceDialog.newInstance(preference.getKey(),lengthFilter);
+        } else {
+            super.onDisplayPreferenceDialog(preference);
+        }
+        if (f != null) {
+            f.setTargetFragment(this, 0);
+            f.show(getFragmentManager(), C_DIALOG_TAG);
+        }
+    }
+
+    /**
+     * Custom EditText preference dialog to allow for Filters
+     * Because correct Android is hard.
+     */
+    public static class EditTextPreferenceDialog extends EditTextPreferenceDialogFragmentCompat {
+        private InputFilter[] filters;
+
+        public static EditTextPreferenceDialog newInstance(String key, InputFilter[] filters) {
+            final EditTextPreferenceDialog
+                    fragment = new EditTextPreferenceDialog();
+            final Bundle b = new Bundle(1);
+            b.putString(ARG_KEY, key);
+            fragment.setArguments(b);
+            fragment.filters = filters;
+            return fragment;
+        }
+
+        @Override
+        protected void onBindDialogView(View view) {
+            super.onBindDialogView(view);
+            ((EditText)view.findViewById(android.R.id.edit)).setFilters(filters);
+        }
     }
 }

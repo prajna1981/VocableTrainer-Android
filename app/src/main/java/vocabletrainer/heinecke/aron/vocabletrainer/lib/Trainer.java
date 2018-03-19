@@ -97,7 +97,7 @@ public class Trainer {
     }
 
     /**
-     * Retreive information from DB
+     * Retrieve information from DB
      */
     private void getTableData() {
         db.getSessionTableData(lists, unsolvedLists, settings);
@@ -111,7 +111,7 @@ public class Trainer {
     public String getSolution() {
         Log.d(TAG,"getSolution");
         timesShowedSolution++;
-        return getSolutionUnchecked();
+        return getSolutionPossibilitiesUnchecked();
     }
 
     /**
@@ -119,7 +119,7 @@ public class Trainer {
      *     Does not count it as failed.
      *
      *     <br><br>
-     *         not to be confused with getSolutionUnchecked
+     *         not to be confused with getSolutionPossibilitiesUnchecked
      * @return Solution
      */
     public String getSolutionUncounted(){
@@ -129,20 +129,31 @@ public class Trainer {
             return "";
         }
         showedSolution = true;
-        return getSolutionUnchecked();
+        return getSolutionPossibilitiesUnchecked();
     }
 
     /**
-     * Returns the solution<br>
+     * Returns all possible solutions<br>
      * No null checks are done or failed counter changes are made
      *
      * @return Solution
      */
-    private String getSolutionUnchecked() {
+    private String getSolutionPossibilitiesUnchecked() {
         if (order == AB_MODE.A)
-            return cVocable.getAWord();
+            return cVocable.getAString();
         else
-            return cVocable.getBWord();
+            return cVocable.getBString();
+    }
+
+    /**
+     * Returns possible solutions
+     * @return
+     */
+    private List<String> getSolutionsUnchecked() {
+        if (order == AB_MODE.A)
+            return cVocable.getAMeanings();
+        else
+            return cVocable.getBMeanings();
     }
 
     /**
@@ -164,6 +175,28 @@ public class Trainer {
     }
 
     /**
+     * Check is candidate is one of the possible solutions
+     *
+     * @param candidate
+     * @return true if candidate is a correct solution
+     */
+    private boolean isSolution(String candidate) {
+        List<String> solutions = getSolutionsUnchecked();
+        if(settings.trimSpaces)
+            candidate = candidate.trim();
+
+        for(String solution : solutions){
+            if(settings.trimSpaces)
+                solution = solution.trim();
+            if(this.settings.caseSensitive && solution.equalsIgnoreCase(candidate))
+                return true;
+            else if(solution.equals(candidate))
+                return true;
+        }
+        return false;
+    }
+
+    /**
      * Checks for correct solution <br>
      *     Retrieves next vocable if correct
      *
@@ -172,11 +205,13 @@ public class Trainer {
      */
     public boolean checkSolution(final String tSolution) {
         Log.d(TAG,"checkSolution");
-        boolean bSolved = equals(getSolutionUnchecked(),tSolution);
+        boolean bSolved = isSolution(tSolution);
         if(bSolved) {
+            cVocable.incrCorrect();
             accountVocable(bSolved);
         }else {
             this.failed++;
+            cVocable.incrWrong();
         }
         return bSolved;
     }
@@ -218,6 +253,9 @@ public class Trainer {
         if(!passed){
             this.failed++;
             timesShowedSolution++;
+            cVocable.incrWrong();
+        } else {
+            cVocable.incrCorrect();
         }
         accountVocable(passed);
     }
@@ -257,13 +295,13 @@ public class Trainer {
         } else {
             int selected = rng.nextInt(unsolvedLists.size());
             VList tbl = unsolvedLists.get(selected);
-
+            Log.d(TAG,"Tbl: "+tbl);
             boolean allowRepetition = false;
             if (cVocable != null) {
                 if (allowRepetition = unsolvedLists.size() == 1 && unsolvedLists.get(0).getUnfinishedVocs() == 1) {
                     Log.d(TAG, "one left");
                 } else if (tbl.getUnfinishedVocs() == 1 && tbl.getId() == cVocable.getList().getId()) {
-                    // handle table has only one entry left
+                    // selected table has only one entry left
                     // prevent repeating last vocable of table
                     if (selected + 1 >= unsolvedLists.size())
                         selected--;
@@ -281,7 +319,7 @@ public class Trainer {
                 cVocable = db.getRandomTrainerEntry(tbl, cVocable, settings, allowRepetition);
             }
             if (cVocable == null) {
-                Log.e(TAG, "New vocable is null!");
+                Log.wtf(TAG, "New vocable is null!");
             }
             boolean mode = settings.mode == TEST_MODE.A;
             if (settings.mode == TEST_MODE.RANDOM) {
@@ -305,7 +343,7 @@ public class Trainer {
         if (cVocable == null)
             return "";
 
-        return order == AB_MODE.A ? cVocable.getBWord() : cVocable.getAWord();
+        return order == AB_MODE.A ? cVocable.getBString() : cVocable.getAString();
     }
 
     /**
@@ -330,7 +368,7 @@ public class Trainer {
      */
     public String getColumnNameExercise() {
         if (this.cVocable == null)
-            return "";
+            return "ERROR: No Column Name!";
 
         return order == AB_MODE.A ? cVocable.getList().getNameB() : cVocable.getList().getNameA();
     }
@@ -343,7 +381,7 @@ public class Trainer {
      */
     public String getColumnNameSolution() {
         if (this.cVocable == null)
-            return "";
+            return "ERROR: No Column Name!";
 
         return order == AB_MODE.B ? cVocable.getList().getNameB() : cVocable.getList().getNameA();
     }
